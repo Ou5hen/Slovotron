@@ -1,5 +1,7 @@
 // Leaderboard Logic
 const LEADERBOARD_KEY = 'word_game_leaderboard';
+let lbStatRender;
+let leaderboardHideTimeoutId;
 
 function getLeaderboardData() {
     const data = localStorage.getItem(LEADERBOARD_KEY);
@@ -91,6 +93,34 @@ function resetLeaderboard() {
     }
 }
 
+function setLeaderboardVisible(isVisible) {
+    const leaderboardSection = document.getElementById('leaderboard-statistic');
+    clearTimeout(leaderboardHideTimeoutId);
+    clearInterval(lbStatRender);
+    leaderboardSection.style.display = isVisible ? 'flex' : 'none';
+
+    if (isVisible) {
+        renderLeaderboard();
+        renderStatistic();
+        lbStatRender = setInterval(function () {
+            if (is_game_finished) { clearInterval(lbStatRender) }
+            renderStatistic();
+        }, 1000)
+    }
+}
+
+function showLeaderboardTemporarily() {
+    const leaderboardSection = document.getElementById('leaderboard-statistic');
+    if (leaderboardSection.style.display !== 'none') return;
+
+    setLeaderboardVisible(true);
+    leaderboardHideTimeoutId = setTimeout(() => {
+        leaderboardHideTimeoutId = null;
+        // На экране победы статистика должна оставаться видимой.
+        if (!is_game_finished) setLeaderboardVisible(false);
+    }, 3000);
+}
+
 // Event Listeners for Leaderboard
 const leaderboardBtn = document.getElementById('menu-button-leaderboard');
 if (leaderboardBtn) {
@@ -98,18 +128,7 @@ if (leaderboardBtn) {
         const leaderboardSection = document.getElementById('leaderboard-statistic');
         // Toggle display
         const isVisible = leaderboardSection.style.display !== 'none';
-        leaderboardSection.style.display = isVisible ? 'none' : 'flex';
-
-        if (!isVisible) {
-            renderLeaderboard();
-            renderStatistic();
-            lbStatRender = setInterval(function () {
-                if (is_game_finished) { clearInterval(lbStatRender) }
-                renderStatistic();
-            }, 1000)
-        } else {
-            clearInterval(lbStatRender);
-        }
+        setLeaderboardVisible(!isVisible);
     });
 }
 

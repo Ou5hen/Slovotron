@@ -31,6 +31,11 @@ function create_chat_connection(channel_name = '') {
             user.badges?.moderator;
 
         const command = message.toLowerCase();
+        if (['!слв-топ', '!словотрон-топ'].includes(command.trim())) {
+            showLeaderboardTemporarily();
+            return;
+        }
+
         const moderatorTipCommands = [
             '!словотрон-подсказка',
             '!слв-рестарт',
