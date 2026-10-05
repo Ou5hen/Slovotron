@@ -201,6 +201,18 @@ function addMatchWord(new_message, distance) {
     }
 }
 
+// Экранирование текста перед вставкой в HTML: ники из VK / YouTube / Kick
+// приходят через MiniChat как есть, и без этого символы < > в нике
+// превратились бы в HTML-код прямо в оверлее.
+function escapeHtml(text = '') {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function message_template(word, distance, name, nickname_color) {
 
     const width = Math.max(0, 100 - (distance / 2800) * 100);
@@ -215,8 +227,8 @@ function message_template(word, distance, name, nickname_color) {
                     <div class="word">${render_word_html(word)}</div>
                     <div class="distance">${distance}</div>
                 </div>
-                <div class="name" style="color: ${nickname_color}; white-space: nowrap;">
-                    <span>${name}</span>
+                <div class="name" style="color: ${escapeHtml(nickname_color)}; white-space: nowrap;">
+                    <span>${escapeHtml(name)}</span>
                 </div>
             </div>
         </div>
@@ -282,16 +294,6 @@ function handle_win(winner_user, winning_word = '') {
         round_duration_sec: roundDurationSec
     });
 
-    if (typeof analytics_reach_goal === 'function') {
-        analytics_reach_goal('round_win', {
-            channel_name: channel_name,
-            game_backend: game_backend,
-            unique_players_count: uniqUsers.size,
-            total_guesses_count: checked_words.size,
-            round_duration_sec: roundDurationSec,
-            hints_used: typeof hints_used === 'number' ? hints_used : 0
-        });
-    }
 
     const resetTimeout = (typeof restart_time !== 'undefined' ? restart_time : 20) * 1000;
     let confettiTimeout = Date.now() + (restart_time - 5) * 1000;

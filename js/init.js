@@ -145,16 +145,8 @@ async function app() {
 
             reset_round();
 
-            // получение секретного слова и данных стримера параллельно
-            const [secretId, twitchUser] = await Promise.all([
-                generate_secret_word(),
-                getTwitchUserData(channel_name).catch(e => {
-                    console.warn('Не удалось получить данные стримера для аналитики:', e);
-                    return null;
-                })
-            ]);
-
-            secret_word_id = secretId;
+            // получение секретного слова
+            secret_word_id = await generate_secret_word();
             console.log('Ключ игры: ', secret_word_id);
             sendWebhookEvent('game-new', {
                 challenge_id: secret_word_id,
@@ -167,26 +159,6 @@ async function app() {
                 console.warn('Не удалось дождаться подключения к чату Twitch:', e);
             });
 
-            // TwitchTracker считает средний онлайн за последние 30 дней.
-            // Получаем его один раз за игровую сессию, после подключения к чату.
-            const twitchTrackerSummary = await getTwitchTrackerChannelSummary(channel_name);
-
-            // отправка данных об использовании игры в аналитику
-            const is_obs = document.body.classList.contains('obs-overlay') ? 1 : 0;
-            const startParams = {
-                channel_name: channel_name,
-                followers: typeof twitchUser?.followers === 'number' ? twitchUser.followers : 0,
-                chatterCount: typeof twitchUser?.chatterCount === 'number' ? twitchUser.chatterCount : 0,
-                is_obs: is_obs,
-                game_backend: game_backend
-            };
-
-            if (typeof twitchTrackerSummary?.avg_viewers === 'number') {
-                startParams.avg_viewers = twitchTrackerSummary.avg_viewers;
-            }
-
-            analytics_set_visit_params(startParams);
-            analytics_reach_goal('game_start', startParams);
 
         } else {
             setManualGuessReady(false);
