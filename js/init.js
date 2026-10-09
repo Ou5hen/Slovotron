@@ -31,8 +31,9 @@ function create_chat_connection(channel_name = '') {
             user.badges?.moderator;
 
         const command = message.toLowerCase();
-        if (['!слв-топ', '!словотрон-топ'].includes(command.trim())) {
+        if (TOP_COMMANDS.includes(command.trim())) {
             showLeaderboardTemporarily();
+            if (typeof notify_streamerbot_top === 'function') notify_streamerbot_top();
             return;
         }
 

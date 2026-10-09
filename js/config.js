@@ -14,6 +14,9 @@ const wordgun_model = 'best'; // wordgun v2 alias: always the best model the ser
 let wordgun_difficulty = ''; // wordgun v2 difficulty; empty = whole vocabulary
 let current_secret_word_data = null;
 
+// Команды чата: показать топ-10 на экране и отправить его в чаты стрима
+const TOP_COMMANDS = ['!топ', '!слв-топ', '!словотрон-топ'];
+
 // Состояние игры
 let secret_word_id = '';
 let words_count = 0;

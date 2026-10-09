@@ -52,6 +52,13 @@
             return;
         }
 
+        // топ-10 победителей: на экран и в чаты
+        if (typeof TOP_COMMANDS !== 'undefined' && TOP_COMMANDS.includes(raw.toLowerCase())) {
+            if (typeof showLeaderboardTemporarily === 'function') showLeaderboardTemporarily();
+            if (typeof notify_streamerbot_top === 'function') notify_streamerbot_top();
+            return;
+        }
+
         if (raw.startsWith('!')) return; // остальные команды не считаем словами
 
         // убираем знаки препинания по краям, принимаем только одно слово из букв
