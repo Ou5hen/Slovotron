@@ -467,15 +467,9 @@ body.has-custom-bg #manual-guess-form {
         display: none;
     }
 
-    /* hide 4 and 5 elements */
-    #leaderboard .list *:nth-child(n+4) {
-        display: none;
-    }
-
-    /* remove border from 3 elements */
-    #leaderboard .list *:nth-child(3) {
-        border-bottom: none;
-        padding-bottom: 0;
+    /* топ-10: строки поплотнее, чтобы таблица не вытягивалась */
+    .leaderboard-item {
+        padding: 5px 0;
     }
 
     #statistic,
@@ -530,15 +524,9 @@ body.has-custom-bg #manual-guess-form {
     display: none;
 }
 
-/* hide 4 and 5 elements */
-.obs-overlay #leaderboard .list *:nth-child(n+4) {
-    display: none;
-}
-
-/* remove border from 3 elements */
-.obs-overlay #leaderboard .list *:nth-child(3) {
-    border-bottom: none;
-    padding-bottom: 0;
+/* топ-10 в оверлее: строки поплотнее, чтобы таблица не вытягивалась */
+.obs-overlay .leaderboard-item {
+    padding: 5px 0;
 }
 
 .obs-overlay #statistic,

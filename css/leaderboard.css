@@ -34,9 +34,9 @@
 }
 
 .leaderboard-item .rank {
-    margin-right: 15px;
+    margin-right: 12px;
     color: #777;
-    width: 20px;
+    min-width: 36px; /* место под #10 */
     font-weight: bold;
 }
 
