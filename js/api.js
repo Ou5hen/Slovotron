@@ -369,6 +369,43 @@ async function get_tip(gameId, lastRank) {
     return backend.tip(gameId, lastRank);
 }
 
+// --- Защита от повторов загаданных слов --------------------------------------
+// Последние загаданные слова хранятся в localStorage этой страницы (отдельно
+// в OBS и в обычном браузере). Если сервер выдал слово из этого списка,
+// игра запрашивает другое. Работает для контекстно.рф: wordgun слово не сообщает.
+const USED_WORDS_STORAGE_KEY = 'used_secret_words';
+const USED_WORDS_LIMIT = 200;   // сколько последних слов помнить
+const MAX_REPEAT_REROLLS = 10;  // сколько раз перезапросить слово, если выпал повтор
+
+function normalize_secret_word(word) {
+    return String(word).trim().toLowerCase().replace(/ё/g, 'е');
+}
+
+function load_used_words() {
+    try {
+        const list = JSON.parse(localStorage.getItem(USED_WORDS_STORAGE_KEY) || '[]');
+        return Array.isArray(list) ? list : [];
+    } catch {
+        return [];
+    }
+}
+
+function is_used_word(word) {
+    return !!word && load_used_words().includes(normalize_secret_word(word));
+}
+
+function remember_used_word(word) {
+    if (!word) return;
+    try {
+        const key = normalize_secret_word(word);
+        const list = load_used_words().filter(w => w !== key);
+        list.push(key);
+        localStorage.setItem(USED_WORDS_STORAGE_KEY, JSON.stringify(list.slice(-USED_WORDS_LIMIT)));
+    } catch (e) {
+        console.warn('Не удалось сохранить историю слов:', e);
+    }
+}
+
 async function generate_secret_word() {
     const backend = getActiveBackend();
     let retry_count = 0;
@@ -376,7 +413,17 @@ async function generate_secret_word() {
 
     while (retry_count < max_retries) {
         try {
-            const game = await backend.createGame();
+            let game = await backend.createGame();
+
+            // Если это слово уже было недавно, берём другое.
+            let rerolls = 0;
+            while (is_used_word(game.secretWord) && rerolls < MAX_REPEAT_REROLLS) {
+                rerolls++;
+                console.log(`Выпало недавнее слово, беру другое (${rerolls}/${MAX_REPEAT_REROLLS})`);
+                game = await backend.createGame();
+            }
+            remember_used_word(game.secretWord);
+
             current_secret_word_data = {
                 challenge_id: game.gameId,
                 secret_word: game.secretWord ?? null
