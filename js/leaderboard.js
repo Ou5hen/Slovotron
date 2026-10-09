@@ -1,5 +1,6 @@
 // Leaderboard Logic
 const LEADERBOARD_KEY = 'word_game_leaderboard';
+const LEADERBOARD_SIZE = 10; // сколько победителей показывать в таблице
 let lbStatRender;
 let leaderboardHideTimeoutId;
 
@@ -45,7 +46,7 @@ function renderLeaderboard() {
     // Convert to array and sort
     const sortedWinners = Object.entries(data)
         .sort((a, b) => b[1] - a[1]) // Sort by count descending
-        .slice(0, 5); // Take top 5
+        .slice(0, LEADERBOARD_SIZE);
 
     if (sortedWinners.length === 0) {
         listContainer.innerHTML = '<div style="text-align: center; color: #777;">Пока нет победителей</div>';

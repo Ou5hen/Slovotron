@@ -282,6 +282,13 @@ function handle_win(winner_user, winning_word = '') {
 
     const roundDurationSec = roundStartTime ? Math.max(0, Math.floor((Date.now() - roundStartTime) / 1000)) : 0;
 
+    if (typeof notify_streamerbot_win === 'function') {
+        notify_streamerbot_win(winner_user, winning_word, {
+            attempts: checked_words.size,
+            durationSec: roundDurationSec
+        });
+    }
+
     sendWebhookEvent('game-win', {
         winner: {
             login: winner_user.username || '',
