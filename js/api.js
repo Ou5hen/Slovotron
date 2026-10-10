@@ -378,40 +378,70 @@ async function get_tip(gameId, lastRank) {
 }
 
 // --- Защита от повторов загаданных слов --------------------------------------
-// Последние загаданные слова хранятся в localStorage этой страницы (отдельно
-// в OBS и в обычном браузере). Если сервер выдал слово из этого списка,
-// игра запрашивает другое. Работает для контекстно.рф: wordgun слово не сообщает.
+// Все загаданные слова хранятся в localStorage этой страницы (отдельно в OBS
+// и в обычном браузере). Если сервер выдал уже бывшее слово, игра просит другое.
+// Когда новые слова почти закончились (MAX_REPEAT_REROLLS попыток подряд — одни
+// повторы), начинается новый круг: из памяти убираются самые давние слова, и они
+// снова могут выпасть. Так слово не повторится, пока не пройдёт почти весь словарь.
+// Работает для контекстно.рф: wordgun загаданное слово не сообщает.
 const USED_WORDS_STORAGE_KEY = 'used_secret_words';
-const USED_WORDS_LIMIT = 200;   // сколько последних слов помнить
-const MAX_REPEAT_REROLLS = 10;  // сколько раз перезапросить слово, если выпал повтор
+const USED_WORDS_LIMIT = 30000;        // предел памяти на всякий случай (~400 КБ)
+const MAX_REPEAT_REROLLS = 10;         // сколько раз перезапросить слово, если выпал повтор
+const NEW_CYCLE_KEEP_SHARE = 0.3;      // при новом круге сколько последних слов оставить в памяти
+
+let used_words_cache = null;           // массив слов от самого давнего к последнему
 
 function normalize_secret_word(word) {
     return String(word).trim().toLowerCase().replace(/ё/g, 'е');
 }
 
 function load_used_words() {
+    if (used_words_cache) return used_words_cache;
     try {
         const list = JSON.parse(localStorage.getItem(USED_WORDS_STORAGE_KEY) || '[]');
-        return Array.isArray(list) ? list : [];
+        used_words_cache = Array.isArray(list) ? list : [];
     } catch {
-        return [];
+        used_words_cache = [];
+    }
+    return used_words_cache;
+}
+
+function save_used_words(list) {
+    used_words_cache = list.slice(-USED_WORDS_LIMIT);
+    try {
+        localStorage.setItem(USED_WORDS_STORAGE_KEY, JSON.stringify(used_words_cache));
+    } catch (e) {
+        console.warn('Не удалось сохранить историю слов:', e);
+        window.slv_warn?.(`Не удалось сохранить историю загаданных слов: ${e?.message || e}`);
     }
 }
 
+function used_word_index(word) {
+    return word ? load_used_words().indexOf(normalize_secret_word(word)) : -1;
+}
+
 function is_used_word(word) {
-    return !!word && load_used_words().includes(normalize_secret_word(word));
+    return used_word_index(word) !== -1;
 }
 
 function remember_used_word(word) {
     if (!word) return;
-    try {
-        const key = normalize_secret_word(word);
-        const list = load_used_words().filter(w => w !== key);
-        list.push(key);
-        localStorage.setItem(USED_WORDS_STORAGE_KEY, JSON.stringify(list.slice(-USED_WORDS_LIMIT)));
-    } catch (e) {
-        console.warn('Не удалось сохранить историю слов:', e);
-    }
+    const key = normalize_secret_word(word);
+    const list = load_used_words().filter(w => w !== key);
+    list.push(key);
+    save_used_words(list);
+}
+
+// Новые слова почти закончились: оставляем в памяти только последние слова.
+function start_new_word_cycle() {
+    const list = load_used_words();
+    const keep = Math.floor(list.length * NEW_CYCLE_KEEP_SHARE);
+    const n = list.length, n10 = n % 10, n100 = n % 100;
+    const words = n10 === 1 && n100 !== 11 ? 'слово'
+        : n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14) ? 'слова' : 'слов';
+    window.slv_warn?.(`Новые слова почти закончились: ${MAX_REPEAT_REROLLS} попыток подряд — одни повторы. `
+        + `В памяти было ${n} ${words} — это примерно весь словарь. Начинаю новый круг, оставляю последние ${keep}.`);
+    save_used_words(list.slice(-keep));
 }
 
 async function generate_secret_word() {
@@ -422,18 +452,29 @@ async function generate_secret_word() {
     while (retry_count < max_retries) {
         try {
             let game = await backend.createGame();
+            const candidates = [game];
 
-            // Если это слово уже было недавно, берём другое.
+            // Если это слово уже было, берём другое.
             let rerolls = 0;
             while (is_used_word(game.secretWord) && rerolls < MAX_REPEAT_REROLLS) {
                 rerolls++;
-                console.log(`Выпало недавнее слово, беру другое (${rerolls}/${MAX_REPEAT_REROLLS})`);
+                console.log(`Выпало бывшее слово, беру другое (${rerolls}/${MAX_REPEAT_REROLLS})`);
                 game = await backend.createGame();
+                candidates.push(game);
+            }
+
+            // Одни повторы — берём из выпавших слово, которое было давнее всех,
+            // и начинаем новый круг.
+            if (is_used_word(game.secretWord)) {
+                game = candidates.reduce((oldest, c) =>
+                    used_word_index(c.secretWord) < used_word_index(oldest.secretWord) ? c : oldest);
+                start_new_word_cycle();
             }
             remember_used_word(game.secretWord);
 
             const difficulty = backend.id === 'wordgun' ? `, сложность: ${wordgun_difficulty || 'без ограничения'}` : '';
-            window.slv_log?.(`Новый раунд (${backend.label}${difficulty})${rerolls ? `, пропущено повторов: ${rerolls}` : ''}`);
+            const memory = game.secretWord ? `, слов в памяти: ${load_used_words().length}` : '';
+            window.slv_log?.(`Новый раунд (${backend.label}${difficulty})${memory}${rerolls ? `, пропущено повторов: ${rerolls}` : ''}`);
 
             current_secret_word_data = {
                 challenge_id: game.gameId,

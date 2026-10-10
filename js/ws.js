@@ -351,9 +351,14 @@ function handle_win(winner_user, winning_word = '') {
 }
 
 async function resetRoundTimeout(time) {
+    // Слово для следующего раунда запрашиваем сразу, пока идёт отсчёт: если
+    // придётся пропускать повторы, это займёт время, но раунд не задержится.
+    const nextWord = generate_secret_word();
+    nextWord.catch(() => { }); // ошибка обработается ниже, когда слово понадобится
+
     resetRoundTimeoutId = setTimeout(async () => {
         try {
-            secret_word_id = await generate_secret_word();
+            secret_word_id = await nextWord;
             sendWebhookEvent('game-new', {
                 challenge_id: secret_word_id,
                 secret_word: current_secret_word_data?.secret_word || null
