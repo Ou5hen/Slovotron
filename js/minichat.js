@@ -70,10 +70,27 @@
         }
     }
 
+    let connected = false;
+    let reportedDown = false;
+
     function connect() {
         const ws = new WebSocket(MINICHAT_URL);
-        ws.onopen = () => console.log('[MiniChat] подключено');
-        ws.onclose = () => setTimeout(connect, 5000);
+        ws.onopen = () => {
+            console.log('[MiniChat] подключено');
+            connected = true;
+            reportedDown = false;
+            window.slv_log?.('MiniChat подключён');
+        };
+        ws.onclose = () => {
+            if (connected) {
+                window.slv_warn?.('MiniChat отключился, переподключаюсь каждые 5 с');
+            } else if (!reportedDown) {
+                window.slv_warn?.('MiniChat недоступен (localhost:4848) — чаты VK/YouTube/Kick не читаются');
+            }
+            connected = false;
+            reportedDown = true;
+            setTimeout(connect, 5000);
+        };
         ws.onerror = () => ws.close();
         ws.onmessage = (e) => {
             let ev;

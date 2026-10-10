@@ -12,7 +12,7 @@
 //   %duration%  длительность раунда, мм:сс
 //
 // Действие «Словотрон: топ» — по команде из TOP_COMMANDS (config.js). Аргументы:
-//   %message%   весь топ-10 одной строкой (для Twitch, до 500 символов)
+//   %message%   весь топ-10 одной строкой, у первых трёх — медали (для Twitch, до 500 символов)
 //   %part1%     места 1–5, %part2% — места 6–10 (каждая часть до 200 символов, для YouTube)
 //
 // Отправка идёт только из оверлея OBS (ссылка с obs-overlay), чтобы копия игры,
@@ -21,6 +21,8 @@
     const STREAMERBOT_URL = 'ws://127.0.0.1:8080/';
     const WIN_ACTION = 'Словотрон: победа';
     const TOP_ACTION = 'Словотрон: топ';
+    const TOP_CHAT_SIZE = 10;            // сколько мест отправлять в чат (на экране — LEADERBOARD_SIZE)
+    const TOP_MEDALS = ['🥇', '🥈', '🥉'];
     const TOP_COOLDOWN_MS = 30 * 1000;   // как часто топ может уходить в чат
     const MAX_NAME_LENGTH = 40;           // ник в сообщении о победе
     const MAX_TOP_NAME_LENGTH = 20;       // ник в списке топа
@@ -89,8 +91,10 @@
             clearTimeout(timer);
             if (msg.status === 'ok') {
                 console.log(`[Streamer.bot] «${actionName}» отправлено в чаты`);
+                window.slv_log?.(`Streamer.bot: «${actionName}» отправлено в чаты`);
             } else {
                 console.warn(`[Streamer.bot] ошибка в «${actionName}»:`, msg.error || msg);
+                window.slv_warn?.(`Streamer.bot: ошибка в «${actionName}»: ${msg.error || 'см. Streamer.bot'}`);
             }
             ws.close();
         };
@@ -98,6 +102,7 @@
         ws.onerror = () => {
             clearTimeout(timer);
             console.warn('[Streamer.bot] WebSocket-сервер недоступен (ws://127.0.0.1:8080/)');
+            window.slv_warn?.(`Streamer.bot недоступен — «${actionName}» не отправлено`);
         };
     }
 
@@ -153,11 +158,10 @@
 
     function getTopEntries() {
         if (typeof getLeaderboardData !== 'function') return [];
-        const size = typeof LEADERBOARD_SIZE === 'number' ? LEADERBOARD_SIZE : 10;
         return Object.entries(getLeaderboardData())
             .sort((a, b) => b[1] - a[1])
-            .slice(0, size)
-            .map(([name, wins], i) => `${i + 1}. ${cut(name, MAX_TOP_NAME_LENGTH)} (${wins})`);
+            .slice(0, TOP_CHAT_SIZE)
+            .map(([name, wins], i) => `${TOP_MEDALS[i] || `${i + 1}.`} ${cut(name, MAX_TOP_NAME_LENGTH)} (${wins})`);
     }
 
     function fit(text, limit) {

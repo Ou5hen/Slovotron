@@ -1,6 +1,6 @@
 // Leaderboard Logic
 const LEADERBOARD_KEY = 'word_game_leaderboard';
-const LEADERBOARD_SIZE = 10; // сколько победителей показывать в таблице
+const LEADERBOARD_SIZE = 5; // сколько победителей показывать на экране (в чат по !топ уходит 10)
 let lbStatRender;
 let leaderboardHideTimeoutId;
 

@@ -10,6 +10,10 @@ function create_chat_connection(channel_name = '') {
         channels: [channel_name]
     });
 
+    tmi_client.on('connected', () => window.slv_log?.(`Чат Twitch подключён (${channel_name})`));
+    tmi_client.on('disconnected', (reason) => window.slv_warn?.(`Чат Twitch отключился: ${reason || 'причина неизвестна'}`));
+    tmi_client.on('reconnect', () => window.slv_log?.('Чат Twitch переподключается…'));
+
     // Слушаем сообщения
     // user — это объект со всей инфой (цвет ника, бейджи, id сообщения и т.д.)
     tmi_client.on('message', async (channel, user, message, self) => {
@@ -115,6 +119,7 @@ function enqueue_guess(user, color, message) {
         document.getElementById('settings').style.display = 'none';
     }
     wordQueue.push({ 'user': user, 'color': color, 'msg': normalizedMessage });
+    window.slv_log_queue?.(wordQueue.length);
     if (wordQueue.length === 1) {
         runQueue();
     }
@@ -132,6 +137,7 @@ async function runQueue() {
             console.error('process_message failed:', e);
         } finally {
             wordQueue.shift();
+            window.slv_log_queue?.(wordQueue.length);
         }
     }
 }

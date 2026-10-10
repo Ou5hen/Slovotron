@@ -346,7 +346,15 @@ function backend_max_distance() {
 // Score a guess with the active backend. Returns { distance }: a positive number
 // when the word is in vocabulary, undefined otherwise.
 async function score_word(word, gameId) {
-    return getActiveBackend().score(gameId, word);
+    const started = performance.now();
+    try {
+        const result = await getActiveBackend().score(gameId, word);
+        window.slv_log_word?.(word, performance.now() - started, null);
+        return result;
+    } catch (error) {
+        window.slv_log_word?.(word, performance.now() - started, error);
+        throw error;
+    }
 }
 
 // Ask the active backend whether the game still exists on its side. Returns null
@@ -424,6 +432,9 @@ async function generate_secret_word() {
             }
             remember_used_word(game.secretWord);
 
+            const difficulty = backend.id === 'wordgun' ? `, сложность: ${wordgun_difficulty || 'без ограничения'}` : '';
+            window.slv_log?.(`Новый раунд (${backend.label}${difficulty})${rerolls ? `, пропущено повторов: ${rerolls}` : ''}`);
+
             current_secret_word_data = {
                 challenge_id: game.gameId,
                 secret_word: game.secretWord ?? null
@@ -431,6 +442,7 @@ async function generate_secret_word() {
             return game.gameId;
         } catch (e) {
             console.warn(`Не удалось создать игру (${backend.id}). Попытка ${retry_count + 1}/${max_retries}:`, e);
+            window.slv_warn?.(`Не удалось создать игру (${backend.label}), попытка ${retry_count + 1}/${max_retries}: ${e?.message || e}`);
 
             // Ошибки настроек не исправятся повторным запросом.
             if (e.userMessage) {
@@ -444,6 +456,7 @@ async function generate_secret_word() {
         }
     }
 
+    window.slv_error?.('Не удалось получить загаданное слово после всех попыток — игра остановлена');
     show_fullscreen_error('Ошибка получения секретного слова.<br>Пожалуйста, попробуйте зайти позже.');
     throw new Error('Превышено количество попыток получения секретного слова.');
 }

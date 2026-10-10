@@ -467,11 +467,6 @@ body.has-custom-bg #manual-guess-form {
         display: none;
     }
 
-    /* топ-10: строки поплотнее, чтобы таблица не вытягивалась */
-    .leaderboard-item {
-        padding: 5px 0;
-    }
-
     #statistic,
     #leaderboard {
         padding-top: 15px;
@@ -524,10 +519,6 @@ body.has-custom-bg #manual-guess-form {
     display: none;
 }
 
-/* топ-10 в оверлее: строки поплотнее, чтобы таблица не вытягивалась */
-.obs-overlay .leaderboard-item {
-    padding: 5px 0;
-}
 
 .obs-overlay #statistic,
 .obs-overlay #leaderboard {

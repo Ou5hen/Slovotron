@@ -113,10 +113,12 @@ async function process_message(user, nickname_color, word, force_win = false) {
             word_check = await score_word(word, secret_word_id);
         }
     } catch (err) {
-        // Any guess error can mean the game itself is gone (an expired token, for
-        // one), so ask the backend — the report stays the same either way.
-        if (await backend_game_is_live(secret_word_id) === false) {
+        // Если сервер ответил ошибкой, игра на нём могла закончиться (например, истёк
+        // токен) — спрашиваем. При таймауте или обрыве сети не спрашиваем: второй
+        // запрос тоже повиснет и удвоит задержку для всей очереди слов.
+        if (err?.status && await backend_game_is_live(secret_word_id) === false) {
             console.warn('Игра больше не существует на сервере.');
+            window.slv_warn?.('Сервер слов сообщил, что игра больше не существует (истёк срок игры?)');
             addWordStatusToLastWords(word, 'Ошибка: Игра больше не существует.');
             return;
         }
@@ -282,6 +284,11 @@ function handle_win(winner_user, winning_word = '') {
 
     const roundDurationSec = roundStartTime ? Math.max(0, Math.floor((Date.now() - roundStartTime) / 1000)) : 0;
 
+    const durationText = `${pad(Math.floor(roundDurationSec / 60))}:${pad(roundDurationSec % 60)}`;
+    window.slv_log?.(winner_user.username === 'podskazka'
+        ? `Слово «${winning_word}» открыла подсказка, раунд ${durationText}, слов: ${checked_words.size}`
+        : `Победа: ${winner_user['display-name']} угадал «${winning_word}», раунд ${durationText}, слов: ${checked_words.size}`);
+
     if (typeof notify_streamerbot_win === 'function') {
         notify_streamerbot_win(winner_user, winning_word, {
             attempts: checked_words.size,
@@ -317,7 +324,9 @@ function handle_win(winner_user, winning_word = '') {
 
     play_win_sound();
 
-    if (restart_time > 0 && !document.hidden) {
+    // В OBS перезапуск обязателен: кнопки рестарта в оверлее не видно, и без
+    // таймера игра осталась бы на экране победы навсегда.
+    if (restart_time > 0 && (!document.hidden || isObsOverlayMode())) {
         const menuTimer = document.getElementById('menu-timer');
         menuTimer.innerHTML = pad(restart_time);
         menuTimer.style.display = 'block'
