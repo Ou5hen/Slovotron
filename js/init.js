@@ -72,6 +72,10 @@ function create_chat_connection(channel_name = '') {
             return;
         }
 
+        // Остальные команды чата (!sleep, !unsleep, !д и т.п.) словами не считаем —
+        // раньше «!unsleep» уходил на проверку как слово «unsleep». В MiniChat так уже было.
+        if (message.trim().startsWith('!')) return;
+
         enqueue_guess(user, color, message);
     });
 
