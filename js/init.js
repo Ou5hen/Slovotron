@@ -36,8 +36,8 @@ function create_chat_connection(channel_name = '') {
 
         const command = message.toLowerCase();
         if (TOP_COMMANDS.includes(command.trim())) {
+            // В чат топ отправляет сам Streamer.bot (команда !топ), здесь — только показ на экране.
             showLeaderboardTemporarily();
-            if (typeof notify_streamerbot_top === 'function') notify_streamerbot_top();
             return;
         }
 
@@ -71,10 +71,6 @@ function create_chat_connection(channel_name = '') {
         if (typeof check_easter_egg === 'function' && check_easter_egg(message)) {
             return;
         }
-
-        // Остальные команды чата (!sleep, !unsleep, !д и т.п.) словами не считаем —
-        // раньше «!unsleep» уходил на проверку как слово «unsleep». В MiniChat так уже было.
-        if (message.trim().startsWith('!')) return;
 
         enqueue_guess(user, color, message);
     });

@@ -24,19 +24,6 @@
         return typeof data.Message === 'string' ? data.Message : '';
     }
 
-    // Мост Kick -> MiniChat (kick_minichat_bridge.py): с 13.10.2026 MiniChat 0.15 сам не читает Kick,
-    // и сообщения Kick приходят от имени MiniChat с меткой-смайликом "[Kick]..." в начале.
-    // Возвращаем им сервис Kick и убираем метку. Если MiniChat снова сам читает Kick, это не срабатывает.
-    function unwrapKickBridge(d) {
-        const kit = d.MessageKit;
-        if (d.Service !== 'MiniChat' || !Array.isArray(kit) || !kit.length) return;
-        const first = kit[0];
-        if (!first || first.Type !== 'Emoticon' || !first.Data ||
-            typeof first.Data.Text !== 'string' || !first.Data.Text.startsWith('[Kick]')) return;
-        d.Service = 'Kick';
-        d.MessageKit = kit.slice(1);
-    }
-
     function isTipCommand(text) {
         const lower = text.toLowerCase();
         return TIP_COMMANDS.some(c => lower === c || lower.startsWith(c + ' '));
@@ -46,7 +33,6 @@
         if (!ev || ev.Type !== 'Message' || !ev.Data) return;
 
         const d = ev.Data;
-        unwrapKickBridge(d);
         const service = String(d.Service || '');
         if (!service || SKIP_SERVICES.includes(service)) return;
 
@@ -66,10 +52,9 @@
             return;
         }
 
-        // топ-10 победителей: на экран и в чаты
+        // топ-10 победителей: здесь только показ на экране, в чат отвечает Streamer.bot
         if (typeof TOP_COMMANDS !== 'undefined' && TOP_COMMANDS.includes(raw.toLowerCase())) {
             if (typeof showLeaderboardTemporarily === 'function') showLeaderboardTemporarily();
-            if (typeof notify_streamerbot_top === 'function') notify_streamerbot_top();
             return;
         }
 

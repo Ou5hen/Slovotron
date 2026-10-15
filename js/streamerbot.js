@@ -11,19 +11,22 @@
 //   %attempts%  сколько слов проверили за раунд
 //   %duration%  длительность раунда, мм:сс
 //
-// Действие «Словотрон: топ» — по команде из TOP_COMMANDS (config.js). Аргументы:
-//   %message%   весь топ-10 одной строкой, у первых трёх — медали (для Twitch, до 500 символов)
+// Действие «Словотрон: сохранить топ» — при загрузке оверлея и после каждого изменения
+// таблицы лидеров. Streamer.bot сохраняет топ в глобальные переменные, а на команду !топ
+// в чате отвечает сам (действие «Словотрон: топ в чат»), даже когда игра не запущена.
+// Аргументы:
+//   %message%   весь топ-10 одной строкой, у первых трёх — медали (до 500 символов)
 //   %part1%     места 1–5, %part2% — места 6–10 (каждая часть до 200 символов, для YouTube)
 //
-// Отправка идёт только из оверлея OBS (ссылка с obs-overlay), чтобы копия игры,
-// открытая в обычном браузере, не дублировала сообщения в чатах.
+// Всё это делает только оверлей OBS (ссылка с obs-overlay): у копии игры, открытой
+// в обычном браузере, своя таблица, и она не должна ни писать в чаты, ни затирать топ.
 (() => {
     const STREAMERBOT_URL = 'ws://127.0.0.1:8080/';
     const WIN_ACTION = 'Словотрон: победа';
-    const TOP_ACTION = 'Словотрон: топ';
+    const TOP_SAVE_ACTION = 'Словотрон: сохранить топ';
     const TOP_CHAT_SIZE = 10;            // сколько мест отправлять в чат (на экране — LEADERBOARD_SIZE)
     const TOP_MEDALS = ['🥇', '🥈', '🥉'];
-    const TOP_COOLDOWN_MS = 30 * 1000;   // как часто топ может уходить в чат
+    const TOP_SYNC_DELAY_MS = 1500;      // несколько изменений таблицы подряд — одна отправка
     const MAX_NAME_LENGTH = 40;           // ник в сообщении о победе
     const MAX_TOP_NAME_LENGTH = 20;       // ник в списке топа
     const TWITCH_LIMIT = 500;
@@ -37,7 +40,7 @@
         Kick: 'Kick',
     };
 
-    let lastTopSentAt = 0;
+    let topSyncTimer = null;
 
     const isOverlay = () => document.body.classList.contains('obs-overlay');
 
@@ -90,8 +93,8 @@
 
             clearTimeout(timer);
             if (msg.status === 'ok') {
-                console.log(`[Streamer.bot] «${actionName}» отправлено в чаты`);
-                window.slv_log?.(`Streamer.bot: «${actionName}» отправлено в чаты`);
+                console.log(`[Streamer.bot] «${actionName}» выполнено`);
+                window.slv_log?.(`Streamer.bot: «${actionName}» выполнено`);
             } else {
                 console.warn(`[Streamer.bot] ошибка в «${actionName}»:`, msg.error || msg);
                 window.slv_warn?.(`Streamer.bot: ошибка в «${actionName}»: ${msg.error || 'см. Streamer.bot'}`);
@@ -186,16 +189,14 @@
         };
     }
 
-    window.notify_streamerbot_top = function () {
-        if (!isOverlay()) return;
-
-        const now = Date.now();
-        if (now - lastTopSentAt < TOP_COOLDOWN_MS) {
-            console.log('[Streamer.bot] топ недавно уже отправлялся, жду кулдаун');
-            return;
-        }
-        lastTopSentAt = now;
-
-        runAction(TOP_ACTION, buildTopMessages());
+    // Передаёт актуальный топ в Streamer.bot. Вызывается при каждом изменении таблицы.
+    window.sync_streamerbot_top = function () {
+        clearTimeout(topSyncTimer);
+        topSyncTimer = setTimeout(() => {
+            if (isOverlay()) runAction(TOP_SAVE_ACTION, buildTopMessages());
+        }, TOP_SYNC_DELAY_MS);
     };
+
+    // При запуске оверлея — сразу, чтобы Streamer.bot знал топ ещё до первой победы.
+    window.addEventListener('load', () => window.sync_streamerbot_top());
 })();

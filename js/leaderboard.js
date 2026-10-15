@@ -22,6 +22,7 @@ function getLeaderboardData() {
 
 function saveLeaderboardData(data) {
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(data));
+    window.sync_streamerbot_top?.(); // топ для команды !топ в Streamer.bot
 }
 
 function updateLeaderboard(winnerName) {
@@ -91,6 +92,7 @@ function resetLeaderboard() {
     if (doReset) {
         localStorage.removeItem(LEADERBOARD_KEY);
         renderLeaderboard();
+        window.sync_streamerbot_top?.();
     }
 }
 
