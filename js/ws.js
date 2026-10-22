@@ -40,13 +40,19 @@ function addTextToLastWords(text = '') {
     addAnythingToLastWords(html);
 }
 
-function addWordStatusToLastWords(word = '', status = '') {
+// Ник отправителя внутри полоски — справа, перед цифрой.
+function nickname_html(name = '') {
+    return name ? `<div class="name">${escapeHtml(name)}</div>` : '';
+}
+
+function addWordStatusToLastWords(word = '', status = '', user = null) {
     const banword_class = is_banword(word) ? ' banword' : '';
     const html = `
-        <div class="msg${banword_class}">
+        <div class="msg status${banword_class}">
             <div class="msg-content">
                 <div class="word-and-distance">
                     <div class="word">${render_word_html(word)} ${status}</div>
+                    ${nickname_html(user?.['display-name'])}
                 </div>
             </div>
         </div>`;
@@ -76,44 +82,7 @@ function getDistanceColor(distance) {
 }
 
 
-// Игра на сервере слов может закончиться сама: у wordgun.ru токен игры живёт
-// ограниченное время (15.10.2026 раунд закрылся примерно через час без победителя),
-// и раньше Словотрон после этого не засчитывал ни одного слова до перезагрузки.
-// Теперь начинаем новый раунд, как по команде !sres. Если несколько слов заметили
-// это одновременно (Twitch и MiniChat), новый раунд всё равно начинается один раз.
-let expired_round_restart = null;
-
-function restart_expired_round() {
-    if (!expired_round_restart) {
-        expired_round_restart = (async () => {
-            window.slv_warn?.('Сервер слов закрыл игру (истёк срок) — начинаю новый раунд');
-            is_game_finished = true;
-            setManualGuessReady(false);
-            try {
-                secret_word_id = await generate_secret_word();
-            } catch (e) {
-                // generate_secret_word уже записал ошибку в журнал. Не блокируем игру
-                // навсегда: следующее слово из чата попробует начать раунд ещё раз.
-                console.error(e);
-                is_game_finished = false;
-                return false;
-            }
-            document.querySelector('.error-overlay')?.remove();
-            reset_round();
-            sendWebhookEvent('game-new', {
-                challenge_id: secret_word_id,
-                secret_word: current_secret_word_data?.secret_word || null
-            });
-            addTextToLastWords('Прошлый раунд истёк на сервере — загадано новое слово');
-            is_game_finished = false;
-            setManualGuessReady(true);
-            return true;
-        })().finally(() => { expired_round_restart = null; });
-    }
-    return expired_round_restart;
-}
-
-async function process_message(user, nickname_color, word, force_win = false, after_restart = false) {
+async function process_message(user, nickname_color, word, force_win = false) {
 
     if (is_game_finished) return;
 
@@ -132,7 +101,7 @@ async function process_message(user, nickname_color, word, force_win = false, af
             repeatWords++;
         }
         // добавить слово в колонку .guessing .last-words в верх списка
-        addWordStatusToLastWords(word, 'уже было использовано');
+        addWordStatusToLastWords(word, 'уже было использовано', user);
         // console.log(`Слово "${word}" уже было проверено.`);
         return;
     }
@@ -156,23 +125,18 @@ async function process_message(user, nickname_color, word, force_win = false, af
         if (err?.status && await backend_game_is_live(secret_word_id) === false) {
             console.warn('Игра больше не существует на сервере.');
             window.slv_warn?.('Сервер слов сообщил, что игра больше не существует (истёк срок игры?)');
-            // Начинаем новый раунд и проверяем это же слово уже в нём, чтобы оно не пропало.
-            // Повторно не перезапускаем: если и новая игра сразу «не существует», это сбой сервера.
-            if (!after_restart && await restart_expired_round()) {
-                return process_message(user, nickname_color, word, false, true);
-            }
-            addWordStatusToLastWords(word, 'Ошибка: Игра больше не существует.');
+            addWordStatusToLastWords(word, 'Ошибка: Игра больше не существует.', user);
             return;
         }
         console.warn('Ошибка проверки слова:', err);
-        addWordStatusToLastWords(word, 'ошибка API');
+        addWordStatusToLastWords(word, 'ошибка API', user);
         return;
     }
 
     checked_words.set(word, { distance: word_check.distance });
 
     if (!word_check.distance) {
-        addWordStatusToLastWords(word, 'не найдено в словаре');
+        addWordStatusToLastWords(word, 'не найдено в словаре', user);
         // console.log(`Слово "${word}" не имеет дистанци.`);
         return;
     }
@@ -269,10 +233,8 @@ function message_template(word, distance, name, nickname_color) {
                 <div class="bg" style="width: ${width}%; background: ${distance_color}"></div>
                 <div class="word-and-distance">
                     <div class="word">${render_word_html(word)}</div>
+                    ${nickname_html(name)}
                     <div class="distance">${distance}</div>
-                </div>
-                <div class="name" style="color: ${escapeHtml(nickname_color)}; white-space: nowrap;">
-                    <span>${escapeHtml(name)}</span>
                 </div>
             </div>
         </div>
